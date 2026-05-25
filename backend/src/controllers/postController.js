@@ -1,12 +1,10 @@
 import pool from '../db.js'
 
 // 모집 게시글 리스트 조회
-// TODO: 나중에 mockup data로 테스트해볼 것
+// TODO: 인증토큰 확인 절차 구현 필요
 export const getAllPosts = async (req, res, next) => {
   try {
     // gemini 피셜 group_concat이 태그들을 하나의 문자열로 묶어준다고 하는데..
-    // 이상하면 나중에 이쪽을 건드려보면 될듯
-
     const sql = `
     SELECT p.id AS postId,
            p.title AS title,
