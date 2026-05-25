@@ -40,3 +40,66 @@ export const getAllPosts = async (req, res, next) => {
     next(err);
   }
 };
+
+
+
+// 모집 게시글 상세 조회
+// TODO: 인증토큰 확인 절차 구현 필요
+export const getPostById = async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    
+    const sql = `
+    SELECT p.id AS postId,
+           p.author_id AS author,
+           p.title AS title,
+           p.content AS content,
+           p.current_capacity AS currentCapacity,
+           p.max_capacity AS maxCapacity,
+           p.meeting_time AS meetingTime,
+           IF(p.current_capacity >= p.max_capacity, true, false) AS isFulled,
+           GROUP_CONCAT(t.tag_name) AS tags
+    FROM posts p
+    LEFT JOIN post_tags t ON p.id = t.post_id
+    WHERE p.id = ?
+    GROUP BY p.id
+    `;
+    const [rows] = await pool.query(sql, [id]);
+    
+
+    // 게시글 불러오기 실패하였을 경우
+    // 예외 처리: 존재하지 않는 게시글
+    if(rows.length === 0) {
+      return res.status(404).json({
+        "success": false,
+        "message": "존재하지 않거나 삭제된 게시글입니다.",
+        "data": {
+          "errorCode": "POST_NOT_FOUND"
+        }
+      });
+    }
+
+
+
+    // 게시글 불러오기 성공하였을 경우
+    // formattedPosts: 출력 형식 조정
+    const row = rows[0];
+    const formattedPost = {
+      ...row,
+      isFulled: Boolean(row.isFulled),
+      tags: row.tags ? row.tags.split(',') : []
+    };
+    
+
+  
+    res.status(200).json({
+      "success": true,
+      "message": "게시글을 불러왔습니다.",
+      "data": {
+        "posts": formattedPost
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
