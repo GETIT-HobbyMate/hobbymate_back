@@ -211,7 +211,7 @@ export const logIn = async (req, res, next) => {
             studentId: user.student_id
         };
         // sign 메소드의 두 번째 인자. 백엔드 서버만 알 수 있고, 이걸 이용해서 payload 값을 복잡하게 꼰다.
-        const secretKey = 'YOUR_JWT_SECRET_KEY';
+        const secretKey = process.env.JWT_SECRET;
         // sign : Token 발급
         const accessToken = jwt.sign( payload, secretKey, { expiresIn: '1h' });
 
