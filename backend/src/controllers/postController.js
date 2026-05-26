@@ -182,7 +182,7 @@ export const deletePost = async (req, res, next) => {
 
 
 // =================================================================
-// RECRUITMENT POSTS CRUD (모집 게시글 관리)
+// MATCHING & APPLICATIONS (매칭 신청 및 취소)
 // Created by 황영종
 // =================================================================
 
