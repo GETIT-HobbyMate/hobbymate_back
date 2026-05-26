@@ -110,6 +110,32 @@ export const signUp = async (req, res, next) => {   // async 사용
 
     // 201 : create
     try {
+        // 학번 중복 검사 (필요시 형식 검사도 추가해야 함)
+        const [studentRows] = await pool.query(
+            'SELECT id FROM Users WHERE student_id = ?',
+            [studentId]
+        );
+        if (studentRows.length > 0) {
+            return res.status(409).json({ // 명세서 요구사항에 따라 400 혹은 409
+                "success": false,          // 회원가입 실패 상황이므로 false가 자연스러워!
+                "message": "이미 가입된 학번입니다.",
+                "data": { "errorCode": "DUPLICATE_USER" }
+            });
+        }
+
+        // 닉네임 중복 검사 (필요시 형식 검사도 추가해야 함)
+        const [nicknameRows] = await pool.query(
+            'SELECT id FROM Users WHERE nickname = ?',
+            [nickname]
+        );
+        if (nicknameRows.length > 0) {
+            return res.status(409).json({
+                "success": false,
+                "message": "이미 가입된 닉네임입니다.",
+                "data": { "errorCode": "DUPLICATE_USER" }
+            });
+        }
+
         // 비밀번호 해싱
         const saltRounds = 10;  // 해싱 복잡도
         const hashedPassword = await bcrypt.hash(password, saltRounds); // 해싱 거친 비밀번호
