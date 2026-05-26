@@ -31,7 +31,7 @@ export const getAllPosts = async (req, res, next) => {
       isFulled: Boolean(row.isFulled),
       tags: row.tags ? row.tags.split(',') : []
     }));
-    
+
 
 
     res.status(200).json({
@@ -53,7 +53,7 @@ export const getAllPosts = async (req, res, next) => {
 export const getPostById = async (req, res, next) => {
   try {
     const id = Number(req.params.id);
-    
+
     const sql = `
     SELECT p.id AS postId,
            p.author_id AS author,
@@ -70,11 +70,11 @@ export const getPostById = async (req, res, next) => {
     GROUP BY p.id
     `;
     const [rows] = await pool.query(sql, [id]);
-    
+
 
     // 게시글 불러오기 실패하였을 경우
     // 예외 처리: 존재하지 않는 게시글
-    if(rows.length === 0) {
+    if (rows.length === 0) {
       return res.status(404).json({
         "success": false,
         "message": "존재하지 않거나 삭제된 게시글입니다.",
@@ -94,9 +94,9 @@ export const getPostById = async (req, res, next) => {
       isFulled: Boolean(row.isFulled),
       tags: row.tags ? row.tags.split(',') : []
     };
-    
 
-  
+
+
     res.status(200).json({
       "success": true,
       "message": "게시글을 불러왔습니다.",
@@ -146,7 +146,7 @@ export const writePost = async (req, res, next) => {
       "data": {
         "postId": postId
       }
-    }); 
+    });
   } catch (err) {
     next(err);
   }
@@ -171,7 +171,7 @@ export const deletePost = async (req, res, next) => {
       "success": true,
       "message": "게시물이 정상적으로 삭제되었습니다. ",
       "data": {}
-    }); 
+    });
   } catch (err) {
     next(err);
   }
@@ -185,3 +185,61 @@ export const deletePost = async (req, res, next) => {
 // RECRUITMENT POSTS CRUD (모집 게시글 관리)
 // Created by 황영종
 // =================================================================
+
+// 매칭 신청
+// TODO: 유저 id 있어야 함, 인증토큰 확인 절차 구현 필요
+export const applyMatch = async (req, res, next) => {
+  const id = Number(req.params.id);
+
+  try {
+    const check_sql = `
+    SELECT current_capacity, max_capacity
+    FROM posts WHERE id = ?
+    `;
+
+    const [rows] = await pool.execute(check_sql, [id]);
+    const post = rows[0];
+
+
+    // 신청 불가: 정원이 다 찼을 경우
+    if (post.current_capacity >= post.max_capacity) {
+      return res.status(409).json({
+        "success": false,
+        "message": "이미 정원이 마감된 모임입니다.",
+        "data": {
+          "errorCode": "CAPACITY_FULL"
+        }
+      });
+    }
+    
+
+    const apply_sql = `
+      INSERT INTO applications (post_id, applicant_id)
+      VALUES (?, ?)
+      `;
+
+    await pool.execute(apply_sql, [id, 2]); // mockup data: applicant_id = 2
+
+    // 게시글 신청 인원 수 변경
+    const post_update_sql = `
+      UPDATE posts
+      SET current_capacity = current_capacity + 1, status = ?
+      WHERE id = ?
+      `;
+
+    // 신청가능 정원 한 명 남았을 경우
+    const status = (post.max_capacity - post.current_capacity === 1) ? 'COMPLETED' : 'RECRUITING';
+
+    
+    await pool.execute(post_update_sql, [status, id]);
+
+
+    res.status(200).json({
+      "success": true,
+      "message": "매칭 신청이 완료되었습니다.",
+      "data": {}
+    });
+  } catch (err) {
+    next(err);
+  }
+};
