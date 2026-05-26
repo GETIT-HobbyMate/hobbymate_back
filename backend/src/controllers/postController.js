@@ -103,3 +103,46 @@ export const getPostById = async (req, res, next) => {
     next(err);
   }
 };
+
+
+
+
+// 모집 게시글 작성
+// TODO: 인증토큰 확인 후 req.user 등에서 authorId를 추출하도록 수정 필요
+export const writePost = async (req, res, next) => {
+  const { authorId, title, content, meetingTime, maxCapacity, tags, openChatUrl, isFulled } = req.body;
+  try {
+    const sql_post = `
+    INSERT INTO posts (author_id, title, content, meeting_time, max_capacity, open_chat_url, status, is_fulled)
+    VALUES (?, ?, ?, ?, ?, ?, 'RECRUITING', ?)
+    `;
+
+    const [post_result] = await pool.execute(sql_post,
+      [authorId, title, content, meetingTime, maxCapacity, openChatUrl, isFulled]
+    );
+
+    // auto_increment인 게시글 id
+    const postId = post_result.insertId;
+
+    if (tags && tags.length > 0) {
+      const sql_tags = `
+      INSERT INTO post_tags (post_id, tag_name)
+      VALUES (?, ?)
+      `;
+
+      for (const tag of tags) {
+        await pool.execute(sql_tags, [postId, tag]);
+      }
+    }
+
+    res.status(201).json({
+      "success": true,
+      "message": "게시물이 등록되었습니다. ",
+      "data": {
+        "postId": postId
+      }
+    }); 
+  } catch (err) {
+    next(err);
+  }
+};
