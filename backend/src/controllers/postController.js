@@ -11,7 +11,7 @@ export const getAllPosts = async (req, res, next) => {
            p.current_capacity AS currentCapacity,
            p.max_capacity AS maxCapacity,
            p.meeting_time AS meetingTime,
-           IF(p.current_capacity >= p.max_capacity, true, false) AS isFulled,
+           p.is_fulled AS isFulled,
            GROUP_CONCAT(t.tag_name) AS tags
     FROM posts p
     LEFT JOIN post_tags t ON p.id = t.post_id
@@ -57,7 +57,7 @@ export const getPostById = async (req, res, next) => {
            p.current_capacity AS currentCapacity,
            p.max_capacity AS maxCapacity,
            p.meeting_time AS meetingTime,
-           IF(p.current_capacity >= p.max_capacity, true, false) AS isFulled,
+           p.is_fulled AS isFulled,
            GROUP_CONCAT(t.tag_name) AS tags
     FROM posts p
     LEFT JOIN post_tags t ON p.id = t.post_id
@@ -146,3 +146,5 @@ export const writePost = async (req, res, next) => {
     next(err);
   }
 };
+
+
