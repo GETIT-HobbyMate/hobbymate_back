@@ -148,3 +148,26 @@ export const writePost = async (req, res, next) => {
 };
 
 
+// 모집 게시글 삭제
+// TODO: 인증토큰 확인 후 authorID가 posts 테이블에 들어가는 기능 구현
+export const deletePost = async (req, res, next) => {
+  const id = Number(req.params.id);
+  try {
+    const sql = `
+    DELETE FROM posts WHERE id = ?
+    `;
+
+    // 인증토큰 구현 완료 시 작업할 예정
+    // req.status(403)
+
+    await pool.execute(sql, [id]);
+
+    res.status(200).json({
+      "success": true,
+      "message": "게시물이 정상적으로 삭제되었습니다. ",
+      "data": {}
+    }); 
+  } catch (err) {
+    next(err);
+  }
+};
