@@ -18,6 +18,7 @@ CREATE Table Posts (
   open_chat_url varchar(255) COMMENT '카카오톡 오픈채팅 링크',
   status varchar(20) default 'RECRUITING' COMMENT '상태 (RECRUITING / COMPLETED)',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  is_fulled BOOLEAN DEFAULT FALSE COMMENT '꼭 인원이 차야 진행하는지 여부',
   
   -- Relation: 유저(1) : 게시글(N)
   FOREIGN KEY (author_id) REFERENCES Users(id)
