@@ -243,3 +243,59 @@ export const applyMatch = async (req, res, next) => {
     next(err);
   }
 };
+
+
+// 매칭 신청 취소(참여자용)
+// TODO: 유저 id 있어야 함, 인증토큰 확인 절차 구현 필요, 방장은 취소 못하게 해야함
+export const cancelApply = async (req, res, next) => {
+  const id = Number(req.params.id);
+
+  try {
+    const check_sql = `
+    SELECT current_capacity, status
+    FROM posts WHERE id = ?
+    `;
+
+    const [rows] = await pool.execute(check_sql, [id]);
+    const post = rows[0];
+
+
+    // 취소 불가: 매칭이 완료된 모임의 경우
+    if (post.status == 'COMPLETED') {
+      return res.status(400).json({
+        "success": false,
+        "message": "이미 매칭이 완료된 모임은 취소할 수 없습니다.",
+        "data": {
+          "errorCode": "ALREADY_COMPLETED"
+        }
+      });
+    }
+    
+    const apply_sql = `
+      UPDATE applications
+      SET status = 'CANCELED'
+      WHERE post_id = ? AND applicant_id = ?
+      `;
+
+    await pool.execute(apply_sql, [id, 2]); // mockup data: applicant_id = 2
+
+    // 게시글 신청 인원 수 변경
+    const post_update_sql = `
+      UPDATE posts
+      SET current_capacity = current_capacity - 1
+      WHERE id = ?
+      `;
+
+    
+    await pool.execute(post_update_sql, [id]);
+
+
+    res.status(200).json({
+      "success": true,
+      "message": "매칭 신청이 취소되었습니다.",
+      "data": {}
+    });
+  } catch (err) {
+    next(err);
+  }
+};
