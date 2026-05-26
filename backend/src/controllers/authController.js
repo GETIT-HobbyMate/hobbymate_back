@@ -1,7 +1,7 @@
 import pool from '../db.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-
+import dotenv from 'dotenv';
 // 중복 학번 확인
 export const checkDuplicateStudentId = async (req, res, next) => {
     try {
