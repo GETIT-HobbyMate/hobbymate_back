@@ -13,9 +13,9 @@ CREATE Table Posts (
   title varchar(255) NOT NULL,
   content text NOT NULL,
   meeting_time timestamp NOT NULL COMMENT '모임 예정 일시',
-  current_capacity int DEFAULT 1 COMMENT '현재 확정 인원 (방장 포함)',
+  current_capacity int DEFAULT 1 NOT NULL COMMENT '현재 확정 인원 (방장 포함)',
   max_capacity int NOT NULL COMMENT '최대 모집 인원',
-  open_chat_url varchar(255) COMMENT '카카오톡 오픈채팅 링크',
+  open_chat_url varchar(255) NOT NULL COMMENT '카카오톡 오픈채팅 링크',
   status varchar(20) default 'RECRUITING' COMMENT '상태 (RECRUITING / COMPLETED)',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   is_fulled BOOLEAN DEFAULT FALSE COMMENT '꼭 인원이 차야 진행하는지 여부',
@@ -58,7 +58,7 @@ CREATE Table Notifications (
   type varchar(50) NOT NULL COMMENT '알림 종류 (예: MATCH_COMPLETE)',
   message text NOT NULL,
   open_chat_url varchar(255) COMMENT '카카오톡 오픈채팅 링크',
-  is_read boolean default false,
+  is_read boolean default false COMMENT 'true: 이미 읽은 내용',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   
   -- Relation: 유저(1) : 알림(N)
