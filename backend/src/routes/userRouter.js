@@ -1,5 +1,5 @@
 import express from 'express';
-// 컨트롤러 이름도 userController로 맞춰주었습니다.
+
 import { getMe, updateMyProfile } from '../controllers/userController.js';
 
 const router = express.Router();
