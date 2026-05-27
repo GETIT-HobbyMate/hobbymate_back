@@ -200,7 +200,7 @@ export const applyMatch = async (req, res, next) => {
   
     const check_sql = `
     SELECT current_capacity, max_capacity
-    FROM posts WHERE id = ?
+    FROM posts WHERE id = ? FOR UPDATE
     `;
     const [rows] = await conn.execute(check_sql, [id]);
     const post = rows[0];
@@ -270,10 +270,10 @@ export const cancelApply = async (req, res, next) => {
   try {
     // 트랜잭션 시작 알림
     await conn.beginTransaction();
-    
+
     const check_sql = `
     SELECT current_capacity, status
-    FROM posts WHERE id = ?
+    FROM posts WHERE id = ? FOR UPDATE
     `;
 
     const [rows] = await conn.execute(check_sql, [id]);
