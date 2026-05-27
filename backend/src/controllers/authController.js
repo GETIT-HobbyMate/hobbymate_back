@@ -2,6 +2,9 @@ import pool from '../db.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
+
+import { HttpError } from '../errors/httpError.js';
+
 // 중복 학번 확인
 export const checkDuplicateStudentId = async (req, res, next) => {
     try {
@@ -45,7 +48,7 @@ export const checkDuplicateStudentId = async (req, res, next) => {
             }
         });
     } catch (e) {
-        next(e);
+        next(new HttpError(500, '데이터베이스 조회(SELECT) 실패'));
     }
 }
 
@@ -91,7 +94,7 @@ export const checkDuplicateNickname = async (req, res, next) => {
             }
         });
     } catch (e) {
-        next(e);
+        next(new HttpError(500, '데이터베이스 조회(SELECT) 실패'));
     }
 }
 
@@ -155,7 +158,7 @@ export const signUp = async (req, res, next) => {   // async 사용
             }
         });
     } catch (e) {
-        next(e);
+        next(new HttpError(500, '데이터베이스 접근(INSERT or SELECT) 실패'));
     }
 }
 
@@ -226,6 +229,6 @@ export const logIn = async (req, res, next) => {
             }
         });
     } catch (e) {
-        next(e);
+        next(new HttpError(500, '데이터베이스 접근(INSERT or SELECT) 실패'));
     }
 }
