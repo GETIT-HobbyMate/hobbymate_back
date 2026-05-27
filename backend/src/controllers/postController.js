@@ -191,18 +191,24 @@ export const deletePost = async (req, res, next) => {
 export const applyMatch = async (req, res, next) => {
   const id = Number(req.params.id);
 
+  // 트랜잭션 전용 커넥션 생성
+  const conn = await pool.getConnection();
+
   try {
+    // 트랜잭션 시작 알림
+    await conn.beginTransaction();
+  
     const check_sql = `
     SELECT current_capacity, max_capacity
     FROM posts WHERE id = ?
     `;
-
-    const [rows] = await pool.execute(check_sql, [id]);
+    const [rows] = await conn.execute(check_sql, [id]);
     const post = rows[0];
 
 
     // 신청 불가: 정원이 다 찼을 경우
     if (post.current_capacity >= post.max_capacity) {
+      await conn.rollback(); // 중간에 나갈 때 롤백
       return res.status(409).json({
         "success": false,
         "message": "이미 정원이 마감된 모임입니다.",
@@ -218,7 +224,7 @@ export const applyMatch = async (req, res, next) => {
       VALUES (?, ?)
       `;
 
-    await pool.execute(apply_sql, [id, 2]); // mockup data: applicant_id = 2
+    await conn.execute(apply_sql, [id, 2]); // mockup data: applicant_id = 2
 
     // 게시글 신청 인원 수 변경
     const post_update_sql = `
@@ -231,7 +237,10 @@ export const applyMatch = async (req, res, next) => {
     const status = (post.max_capacity - post.current_capacity === 1) ? 'COMPLETED' : 'RECRUITING';
 
     
-    await pool.execute(post_update_sql, [status, id]);
+    await conn.execute(post_update_sql, [status, id]);
+
+    // 모든 쿼리가 에러 없이 성공했다면 최종적으로 DB에 반영
+    await conn.commit();
 
 
     res.status(200).json({
@@ -240,7 +249,12 @@ export const applyMatch = async (req, res, next) => {
       "data": {}
     });
   } catch (err) {
+    // 중간에 쿼리 하나라도 실패해서 catch로 오면 전부 롤백
+    await conn.rollback();
     next(err);
+  } finally {
+    // 작업이 끝나면 빌려온 커넥션을 반드시 반환
+    conn.release();
   }
 };
 
@@ -250,18 +264,26 @@ export const applyMatch = async (req, res, next) => {
 export const cancelApply = async (req, res, next) => {
   const id = Number(req.params.id);
 
+  // 트랜잭션 전용 커넥션 생성
+  const conn = await pool.getConnection();
+
   try {
+    // 트랜잭션 시작 알림
+    await conn.beginTransaction();
+    
     const check_sql = `
     SELECT current_capacity, status
     FROM posts WHERE id = ?
     `;
 
-    const [rows] = await pool.execute(check_sql, [id]);
+    const [rows] = await conn.execute(check_sql, [id]);
     const post = rows[0];
 
 
     // 취소 불가: 매칭이 완료된 모임의 경우
     if (post.status == 'COMPLETED') {
+      await conn.rollback();
+
       return res.status(400).json({
         "success": false,
         "message": "이미 매칭이 완료된 모임은 취소할 수 없습니다.",
@@ -277,25 +299,31 @@ export const cancelApply = async (req, res, next) => {
       WHERE post_id = ? AND applicant_id = ?
       `;
 
-    await pool.execute(apply_sql, [id, 2]); // mockup data: applicant_id = 2
+    await conn.execute(apply_sql, [id, 2]); // mockup data: applicant_id = 2
 
     // 게시글 신청 인원 수 변경
     const post_update_sql = `
       UPDATE posts
       SET current_capacity = current_capacity - 1
       WHERE id = ?
-      `;
+      `;    
+    await conn.execute(post_update_sql, [id]);
 
+
+    // 모든 쿼리가 성공하면 최종 DB 반영
+    await conn.commit();
     
-    await pool.execute(post_update_sql, [id]);
-
-
     res.status(200).json({
       "success": true,
       "message": "매칭 신청이 취소되었습니다.",
       "data": {}
     });
   } catch (err) {
+    // 실패 시 전체 롤백
+    await conn.rollback();
     next(err);
+  } finally {
+    // 작업 완료 후 커넥션 반환
+    conn.release();
   }
 };
