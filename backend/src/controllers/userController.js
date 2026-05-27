@@ -46,7 +46,7 @@ export const getMe = async (req, res, next) => {
         );
 
         // --------------------------------------------------
-        // [5] 최종 응답 데이터 조립 및 반환 (★ 사진 555.jpg 규격 반영)
+        // [5] 최종 응답 데이터 조립 및 반환
         // --------------------------------------------------
         return res.status(200).json({ 
             success: true,                      // 1. success 필드 추가
@@ -79,11 +79,11 @@ export const getMe = async (req, res, next) => {
 
 // ==========================================
 // 2. 내 프로필 수정 API (PATCH /api/users/me)
-// 기획서(666.jpg) 요구사항: 수정 성공 시 success: true 및 "프로필 정보가 변경되었습니다." 반환
+// 요구사항: 수정 성공 시 success: true 및 "프로필 정보가 변경되었습니다." 반환
 // ==========================================
 export const updateMyProfile = async (req, res, next) => {
     try {
-        const userId = req.user?.id || 1;
+        const userId = req.user?.id;
 
         // 클라이언트가 HTTP 요청의 body에 담아 보낸 데이터를 구조분해할당으로 추출합니다.
         const { nickname, password } = req.body;
@@ -109,7 +109,7 @@ export const updateMyProfile = async (req, res, next) => {
             });
         }
 
-        // 정상적으로 업데이트가 완료되었음을 알립니다. (★ 사진 666.jpg 규격 반영)
+        // 정상적으로 업데이트가 완료되었음을 알립니다.
         return res.status(200).json({ 
             success: true,                        // success 필드 추가
             message: "프로필 정보가 변경되었습니다." // 메시지 문구 일치 ("성공적으로" 삭제)
