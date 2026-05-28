@@ -3,6 +3,8 @@ import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
 
+import { errorHandler } from './middlewares/errorHandler.js';
+
 dotenv.config();
 
 const app = express();
@@ -19,6 +21,9 @@ app.use('/', router);
 app.get('/', (req, res) => {
   res.send('HobbyMate Backend Server is running!');
 });
+
+// 에러 핸들러: 모든 라우트 설정 뒤에 위치해야 함
+app.use(errorHandler);
 
 // 서버 실행
 app.listen(PORT, () => {
