@@ -37,10 +37,6 @@ export const authenticateToken = (req, res, next) => {
             id: decoded.userId,
             studentId: decoded.studentId
         };
-        if (!req.body) {    // req.body 상자가 비어있다면, 일단 빈 객체상자({}) 생성
-            req.body = {};
-        }
-        req.body.authorId = decoded.userId;
 
         // 검증 통과했으니 다음 컨트롤러 함수로 이동!
         next();
