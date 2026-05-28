@@ -37,6 +37,9 @@ export const authenticateToken = (req, res, next) => {
             id: decoded.userId,
             studentId: decoded.studentId
         };
+        if (!req.body) {    // req.body 상자가 비어있다면, 일단 빈 객체상자({}) 생성
+            req.body = {};
+        }
         req.body.authorId = decoded.userId;
 
         // 검증 통과했으니 다음 컨트롤러 함수로 이동!
@@ -47,8 +50,8 @@ export const authenticateToken = (req, res, next) => {
         return res.status(401).json({
             "success": false,
             "message": "유효하지 않거나 만료된 토큰입니다.",
-            "data": { 
-                "errorCode": "INVALID_TOKEN" 
+            "data": {
+                "errorCode": "INVALID_TOKEN"
             }
         });
     }
