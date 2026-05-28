@@ -12,6 +12,8 @@ import {
 
 const router = express.Router();
 
+router.use(authenticateToken);
+
 // 취미 매칭 게시글 CRUD
 router.get('/',      getAllPosts);          // GET    /posts
 router.get('/:id',   getPostById);          // GET    /posts/:id
