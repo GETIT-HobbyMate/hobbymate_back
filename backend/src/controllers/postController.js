@@ -115,7 +115,8 @@ export const getPostById = async (req, res, next) => {
 // 모집 게시글 작성
 // TODO: 인증토큰 확인 후 req.user 등에서 authorId를 추출하도록 수정 필요
 export const writePost = async (req, res, next) => {
-  const { authorId, title, content, meetingTime, maxCapacity, tags, openChatUrl, isFulled } = req.body;
+  const authorId = req.user.id;
+  const { title, content, meetingTime, maxCapacity, tags, openChatUrl, isFulled } = req.body;
   try {
     const sql_post = `
     INSERT INTO posts (author_id, title, content, meeting_time, max_capacity, open_chat_url, status, is_fulled)
@@ -154,24 +155,38 @@ export const writePost = async (req, res, next) => {
 
 
 // 모집 게시글 삭제
-// TODO: 인증토큰 확인 후 authorID가 posts 테이블에 들어가는 기능 구현
 export const deletePost = async (req, res, next) => {
   const id = Number(req.params.id);
+  const userId = req.user.id;
+
   try {
+    const [rows] = await pool.execute('SELECT author_id FROM posts WHERE id = ?', [id]);
+
     const sql = `
     DELETE FROM posts WHERE id = ?
     `;
 
-    // 인증토큰 구현 완료 시 작업할 예정
-    // req.status(403)
+    // 삭제 불가: 게시글 작성자가 아닌 경우
+    if (rows[0].author_id !== userId) {
+      return res.status(403).json({
+        "success": true,
+        "message": "게시글 작성자만 삭제할 수 있습니다.",
+        "data": {
+          "errorCode": "FORBIDDEN_USER"
+        }
+      });
+    }
 
     await pool.execute(sql, [id]);
 
     res.status(200).json({
       "success": true,
-      "message": "게시물이 정상적으로 삭제되었습니다. ",
+      "message": "게시물이 정상적으로 삭제되었습니다.",
       "data": {}
     });
+
+    // 401 Unauthorized는 authMiddleware에서 해결하였음
+    // json 형식으로 출력이 안되고 있는데 해결 필요
   } catch (err) {
     next(err);
   }
@@ -187,9 +202,9 @@ export const deletePost = async (req, res, next) => {
 // =================================================================
 
 // 매칭 신청
-// TODO: 유저 id 있어야 함, 인증토큰 확인 절차 구현 필요
 export const applyMatch = async (req, res, next) => {
   const id = Number(req.params.id);
+  const applicantId = req.user.id;
 
   // 트랜잭션 전용 커넥션 생성
   const conn = await pool.getConnection();
@@ -202,10 +217,11 @@ export const applyMatch = async (req, res, next) => {
     SELECT current_capacity, max_capacity
     FROM posts WHERE id = ? FOR UPDATE
     `;
+
     const [rows] = await conn.execute(check_sql, [id]);
     const post = rows[0];
 
-
+    
     // 신청 불가: 정원이 다 찼을 경우
     if (post.current_capacity >= post.max_capacity) {
       await conn.rollback(); // 중간에 나갈 때 롤백
@@ -224,7 +240,7 @@ export const applyMatch = async (req, res, next) => {
       VALUES (?, ?)
       `;
 
-    await conn.execute(apply_sql, [id, 2]); // mockup data: applicant_id = 2
+    await conn.execute(apply_sql, [id, applicantId]);
 
     // 게시글 신청 인원 수 변경
     const post_update_sql = `
@@ -263,6 +279,7 @@ export const applyMatch = async (req, res, next) => {
 // TODO: 유저 id 있어야 함, 인증토큰 확인 절차 구현 필요, 방장은 취소 못하게 해야함
 export const cancelApply = async (req, res, next) => {
   const id = Number(req.params.id);
+  const applicantId = req.user.id;
 
   // 트랜잭션 전용 커넥션 생성
   const conn = await pool.getConnection();
@@ -272,7 +289,7 @@ export const cancelApply = async (req, res, next) => {
     await conn.beginTransaction();
 
     const check_sql = `
-    SELECT current_capacity, status
+    SELECT current_capacity, status, author_id
     FROM posts WHERE id = ? FOR UPDATE
     `;
 
@@ -292,6 +309,16 @@ export const cancelApply = async (req, res, next) => {
         }
       });
     }
+
+    // 취소 불가: 방장의 경우
+    if(applicantId === post.author_id)
+      return res.status(400).json({
+        "success": false,
+        "message": "방장은 매칭을 취소할 수 없습니다.",
+        "data": {
+          "errorCode": "LEADER_CANNOT_CANCEL_MATCH"
+        }
+      });
     
     const apply_sql = `
       UPDATE applications
@@ -299,7 +326,7 @@ export const cancelApply = async (req, res, next) => {
       WHERE post_id = ? AND applicant_id = ?
       `;
 
-    await conn.execute(apply_sql, [id, 2]); // mockup data: applicant_id = 2
+    await conn.execute(apply_sql, [id, applicantId]);
 
     // 게시글 신청 인원 수 변경
     const post_update_sql = `
