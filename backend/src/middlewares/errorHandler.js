@@ -6,3 +6,5 @@ export function errorHandler(err, req, res, next) {
   const message = err.message || 'Internal Server Error';
   return res.status(status).json({ error: message });
 }
+
+//...
