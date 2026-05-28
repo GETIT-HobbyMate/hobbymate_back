@@ -25,18 +25,19 @@ export const authenticateToken = (req, res, next) => {
         if (!secretKey) {   // .env 파일 내 JWT_SECRET 누락 확인
             return res.status(500).json({
                 "success": false,
-                "message": "서버 인증 설정이 비어있습니다."
+                "message": "서버 인증 설정(JWT_SECRET)이 비어있습니다."
             });
         }
 
         // 토큰 검증 : 유효기간이 지났거나, secretKey가 안 맞으면 에러 throw
         const decoded = jwt.verify(token, secretKey);
 
-        // 3. 토큰 payload {userId,studentId}에 담아뒀던 유저 정보를 req(요청 객체)에 바인딩
+        // 토큰 payload {userId,studentId}에 담아뒀던 유저 정보를 req(요청 객체)에 바인딩
         req.user = {
             id: decoded.userId,
             studentId: decoded.studentId
         };
+        req.body.authorId = decoded.userId;
 
         // 검증 통과했으니 다음 컨트롤러 함수로 이동!
         next();
