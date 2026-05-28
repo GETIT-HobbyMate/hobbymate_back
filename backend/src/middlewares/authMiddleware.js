@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 
 // 커스텀 에러 객체(HttpError)를 쓰고 있다면 import
-// import { HttpError } from '../errors/HttpError.js'; 
+import { HttpError } from '../errors/httpError.js'; 
 
 export const authenticateToken = (req, res, next) => {
     // HTTP 요청 헤더로부터 순수 토큰 문자열(Authorization 값) 추출
@@ -11,22 +11,13 @@ export const authenticateToken = (req, res, next) => {
 
     // 토큰이 아예 없는 경우 (401 Unauthorized)
     if (!token) {
-        return res.status(401).json({
-            "success": false,
-            "message": "인증 토큰이 누락되었습니다. 로그인이 필요합니다.",
-            "data": {
-                "errorCode": "UNAUTHORIZED"
-            }
-        });
+        return next(new HttpError(401, "인증 토큰이 누락되었습니다. 로그인이 필요합니다."));
     }
 
     try {
         const secretKey = process.env.JWT_SECRET;
         if (!secretKey) {   // .env 파일 내 JWT_SECRET 누락 확인
-            return res.status(500).json({
-                "success": false,
-                "message": "서버 인증 설정(JWT_SECRET)이 비어있습니다."
-            });
+            return next(new HttpError(500, "서버 인증 설정(JWT_SECRET)이 비어있습니다."));
         }
 
         // 토큰 검증 : 유효기간이 지났거나, secretKey가 안 맞으면 에러 throw
@@ -43,12 +34,6 @@ export const authenticateToken = (req, res, next) => {
 
     } catch (e) {
         // 토큰은 들고 왔으나, 변조되었거나 유효기간이 만료된 경우
-        return res.status(401).json({
-            "success": false,
-            "message": "유효하지 않거나 만료된 토큰입니다.",
-            "data": {
-                "errorCode": "INVALID_TOKEN"
-            }
-        });
+        return next(new HttpError(401, "유효하지 않거나 만료된 토큰입니다."));
     }
 };
