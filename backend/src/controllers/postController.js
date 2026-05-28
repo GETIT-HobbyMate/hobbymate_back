@@ -2,7 +2,7 @@ import pool from '../db.js'
 import { HttpError } from '../errors/httpError.js';
 
 // =================================================================
-// RECRUITMENT POSTS CRUD (모집 게시글 관리)
+// RECRUITMENT POSTS CRUD & SEARCH (모집 게시글 관리 및 검색)
 // Created by 황영종
 // =================================================================
 
@@ -174,6 +174,50 @@ export const deletePost = async (req, res, next) => {
       "data": {}
     });
 
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+
+// 태그 기반 게시물 검색
+export const searchPostsByTag = async (req, res, next) => {
+  const { tag } = req.query;
+
+  if (!tag) {
+    return next(new HttpError(400, "검색할 태그를 입력해주세요.", "TAG_REQUIRED"));
+  }
+
+  try {
+    const sql = `
+    SELECT p.id AS postId,
+           p.title AS title,
+           p.current_capacity AS currentCapacity,
+           p.max_capacity AS maxCapacity,
+           p.meeting_time AS meetingTime,
+           p.is_fulled AS isFulled,
+           GROUP_CONCAT(t.tag_name) AS tags
+    FROM posts p
+    LEFT JOIN post_tags t ON p.id = t.post_id
+    WHERE p.id IN (SELECT post_id FROM post_tags WHERE tag_name = ?)
+    GROUP BY p.id
+    `;
+    const [rows] = await pool.query(sql, [tag]);
+
+    const formattedPosts = rows.map(row => ({
+      ...row,
+      isFulled: Boolean(row.isFulled),
+      tags: row.tags ? row.tags.split(',') : []
+    }));
+
+    res.status(200).json({
+      "success": true,
+      "message": "게시물 검색 결과를 불러왔습니다.",
+      "data": {
+        "posts": formattedPosts
+      }
+    });
   } catch (err) {
     next(err);
   }
