@@ -7,7 +7,6 @@ import { HttpError } from '../errors/httpError.js';
 // =================================================================
 
 // 모집 게시글 리스트 조회
-// TODO: 인증토큰 확인 절차 구현 필요
 export const getAllPosts = async (req, res, next) => {
   try {
     // gemini 피셜 group_concat이 태그들을 하나의 문자열로 묶어준다고 하는데..
@@ -50,7 +49,6 @@ export const getAllPosts = async (req, res, next) => {
 
 
 // 모집 게시글 상세 조회
-// TODO: 인증토큰 확인 절차 구현 필요
 export const getPostById = async (req, res, next) => {
   try {
     const id = Number(req.params.id);
@@ -107,7 +105,6 @@ export const getPostById = async (req, res, next) => {
 
 
 // 모집 게시글 작성
-// TODO: 인증토큰 확인 후 req.user 등에서 authorId를 추출하도록 수정 필요
 export const writePost = async (req, res, next) => {
   const authorId = req.user.id;
   const { title, content, meetingTime, maxCapacity, tags, openChatUrl, isFulled } = req.body;
@@ -256,7 +253,6 @@ export const applyMatch = async (req, res, next) => {
 
 
 // 매칭 신청 취소(참여자용)
-// TODO: 유저 id 있어야 함, 인증토큰 확인 절차 구현 필요, 방장은 취소 못하게 해야함
 export const cancelApply = async (req, res, next) => {
   const id = Number(req.params.id);
   const applicantId = req.user.id;
