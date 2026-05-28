@@ -1,4 +1,5 @@
 import pool from '../db.js'
+import { HttpError } from '../errors/httpError.js';
 
 // =================================================================
 // RECRUITMENT POSTS CRUD (모집 게시글 관리)
@@ -74,15 +75,8 @@ export const getPostById = async (req, res, next) => {
 
     // 게시글 불러오기 실패하였을 경우
     // 예외 처리: 존재하지 않는 게시글
-    if (rows.length === 0) {
-      return res.status(404).json({
-        "success": false,
-        "message": "존재하지 않거나 삭제된 게시글입니다.",
-        "data": {
-          "errorCode": "POST_NOT_FOUND"
-        }
-      });
-    }
+    if (rows.length === 0)
+      return next(new HttpError(404, "존재하지 않거나 삭제된 게시글입니다.", "POST_NOT_FOUND"));
 
 
 
@@ -167,15 +161,8 @@ export const deletePost = async (req, res, next) => {
     `;
 
     // 삭제 불가: 게시글 작성자가 아닌 경우
-    if (rows[0].author_id !== userId) {
-      return res.status(403).json({
-        "success": true,
-        "message": "게시글 작성자만 삭제할 수 있습니다.",
-        "data": {
-          "errorCode": "FORBIDDEN_USER"
-        }
-      });
-    }
+    if (rows[0].author_id !== userId)
+      return next(new HttpError(403, "게시글 작성자만 삭제할 수 있습니다.", "FORBIDDEN_USER"));
 
     await pool.execute(sql, [id]);
 
@@ -225,15 +212,8 @@ export const applyMatch = async (req, res, next) => {
     // 신청 불가: 정원이 다 찼을 경우
     if (post.current_capacity >= post.max_capacity) {
       await conn.rollback(); // 중간에 나갈 때 롤백
-      return res.status(409).json({
-        "success": false,
-        "message": "이미 정원이 마감된 모임입니다.",
-        "data": {
-          "errorCode": "CAPACITY_FULL"
-        }
-      });
+      return next(new HttpError(409, "이미 정원이 마감된 모임입니다.", "CAPACITY_FULL"));
     }
-    
 
     const apply_sql = `
       INSERT INTO applications (post_id, applicant_id)
@@ -300,25 +280,14 @@ export const cancelApply = async (req, res, next) => {
     // 취소 불가: 매칭이 완료된 모임의 경우
     if (post.status == 'COMPLETED') {
       await conn.rollback();
-
-      return res.status(400).json({
-        "success": false,
-        "message": "이미 매칭이 완료된 모임은 취소할 수 없습니다.",
-        "data": {
-          "errorCode": "ALREADY_COMPLETED"
-        }
-      });
+      return next(new HttpError(400, "이미 매칭이 완료된 모임은 취소할 수 없습니다.", "ALREADY_COMPLETED"));
     }
 
     // 취소 불가: 방장의 경우
-    if(applicantId === post.author_id)
-      return res.status(400).json({
-        "success": false,
-        "message": "방장은 매칭을 취소할 수 없습니다.",
-        "data": {
-          "errorCode": "LEADER_CANNOT_CANCEL_MATCH"
-        }
-      });
+    if(applicantId === post.author_id) {
+      await conn.rollback();
+      return next(new HttpError(400, "방장은 매칭을 취소할 수 없습니다.", "LEADER_CANNOT_CANCEL_MATCH"));
+    }
     
     const apply_sql = `
       UPDATE applications
