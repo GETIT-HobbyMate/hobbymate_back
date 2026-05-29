@@ -153,6 +153,11 @@ export const deletePost = async (req, res, next) => {
   try {
     const [rows] = await pool.execute('SELECT author_id FROM posts WHERE id = ?', [id]);
 
+    // 예외 처리: 존재하지 않는 게시글일 경우
+    if (rows.length === 0) {
+      return next(new HttpError(404, "존재하지 않거나 삭제된 게시글입니다.", "POST_NOT_FOUND"));
+    }
+
     const sql = `
     DELETE FROM posts WHERE id = ?
     `;
@@ -202,6 +207,12 @@ export const applyMatch = async (req, res, next) => {
 
     const [rows] = await conn.execute(check_sql, [id]);
     const post = rows[0];
+
+    // 예외 처리: 존재하지 않는 게시글일 경우
+    if (!post) {
+      await conn.rollback();
+      return next(new HttpError(404, "존재하지 않거나 삭제된 게시글입니다.", "POST_NOT_FOUND"));
+    }
 
     
     // 신청 불가: 정원이 다 찼을 경우
@@ -270,6 +281,11 @@ export const cancelApply = async (req, res, next) => {
     const [rows] = await conn.execute(check_sql, [id]);
     const post = rows[0];
 
+    // 예외 처리: 존재하지 않는 게시글일 경우
+    if (!post) {
+      await conn.rollback();
+      return next(new HttpError(404, "존재하지 않거나 삭제된 게시글입니다.", "POST_NOT_FOUND"));
+    }
 
     // 취소 불가: 매칭이 완료된 모임의 경우
     if (post.status == 'COMPLETED') {
