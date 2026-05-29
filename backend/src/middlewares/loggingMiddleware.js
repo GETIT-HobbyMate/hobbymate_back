@@ -8,7 +8,11 @@ export function loggingMiddleware(req, res, next) {
   // 응답이 끝나야 상태코드(res.statusCode)와 소요시간을 알 수 있기 때문에 여기서 로그를 찍음
   res.on('finish', () => {
     const duration = Date.now() - start; // 요청 ~ 응답 완료까지 걸린 시간 (ms)
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} ${res.statusCode} - ${duration}ms`);
+    const timestamp = new Date().toLocaleString('ko-KR', {  // 한국 표준시 추가
+      timezone: 'Asia/Seoul',
+      hour12: false
+    });
+    console.log(`[${timestamp}] ${req.method} ${req.originalUrl} ${res.statusCode} - ${duration}ms`);
   });
 
   next(); // 다음 미들웨어(또는 라우터)로 넘김
