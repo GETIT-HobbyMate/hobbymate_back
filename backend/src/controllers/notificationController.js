@@ -97,7 +97,7 @@ export const sendMatchCompleteNotification = async (postId) => {
 // ==========================================
 export const getMyNotifications = async (req, res, next) => {
     try {
-        const userId = req.user.id;
+        const userId = req.user?.id;
 
         const [notifications] = await pool.query(
             'SELECT id, post_id, type, message, open_chat_url, is_read, created_at FROM Notifications WHERE user_id = ? ORDER BY created_at DESC',
@@ -131,7 +131,7 @@ export const getMyNotifications = async (req, res, next) => {
 export const readNotification = async (req, res, next) => {
     try {
         const notificationId = req.params.id;
-        const userId = req.user.id;
+        const userId = req.user?.id;
 
         // 본인 알림인지 확인 후 읽음 처리 (다른 유저의 알림 조작 방지)
         const [result] = await pool.query(
