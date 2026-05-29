@@ -169,8 +169,6 @@ export const deletePost = async (req, res, next) => {
       "data": {}
     });
 
-    // 401 Unauthorized는 authMiddleware에서 해결하였음
-    // json 형식으로 출력이 안되고 있는데 해결 필요
   } catch (err) {
     next(err);
   }
