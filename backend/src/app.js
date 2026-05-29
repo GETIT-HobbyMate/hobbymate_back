@@ -1,9 +1,10 @@
+import router from './routes/index.js';
+import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
-import router from './routes/index.js';
-import { errorHandler } from './middlewares/errorHandler.js';
+
 import { loggingMiddleware } from './middlewares/loggingMiddleware.js';
+import { errorHandler } from './middlewares/errorHandler.js';
 
 dotenv.config();
 

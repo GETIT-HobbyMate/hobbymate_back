@@ -1,13 +1,14 @@
-import express from 'express';
+import express, { Router } from 'express';
+import authRouter from './authRouter.js';
+import postRouter from './postRouter.js';
 import userRouter from './userRouter.js';
 import notificationRouter from './notificationRouter.js';
 
-const router = express.Router();
+const router = Router();
 
-// /api/users/* 요청은 userRouter가 처리
+router.use('/api/auth', authRouter);
+router.use('/posts', postRouter);
 router.use('/users', userRouter);
-
-// /api/notifications/* 요청은 notificationRouter가 처리
 router.use('/notifications', notificationRouter);
 
 export default router;
