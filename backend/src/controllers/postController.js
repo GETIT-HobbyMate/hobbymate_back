@@ -1,4 +1,5 @@
 import pool from '../db.js'
+import { HttpError } from '../errors/httpError.js';
 
 // =================================================================
 // RECRUITMENT POSTS CRUD (모집 게시글 관리)
@@ -6,7 +7,6 @@ import pool from '../db.js'
 // =================================================================
 
 // 모집 게시글 리스트 조회
-// TODO: 인증토큰 확인 절차 구현 필요
 export const getAllPosts = async (req, res, next) => {
   try {
     // gemini 피셜 group_concat이 태그들을 하나의 문자열로 묶어준다고 하는데..
@@ -49,7 +49,6 @@ export const getAllPosts = async (req, res, next) => {
 
 
 // 모집 게시글 상세 조회
-// TODO: 인증토큰 확인 절차 구현 필요
 export const getPostById = async (req, res, next) => {
   try {
     const id = Number(req.params.id);
@@ -74,15 +73,8 @@ export const getPostById = async (req, res, next) => {
 
     // 게시글 불러오기 실패하였을 경우
     // 예외 처리: 존재하지 않는 게시글
-    if (rows.length === 0) {
-      return res.status(404).json({
-        "success": false,
-        "message": "존재하지 않거나 삭제된 게시글입니다.",
-        "data": {
-          "errorCode": "POST_NOT_FOUND"
-        }
-      });
-    }
+    if (rows.length === 0)
+      return next(new HttpError(404, "존재하지 않거나 삭제된 게시글입니다.", "POST_NOT_FOUND"));
 
 
 
@@ -113,9 +105,9 @@ export const getPostById = async (req, res, next) => {
 
 
 // 모집 게시글 작성
-// TODO: 인증토큰 확인 후 req.user 등에서 authorId를 추출하도록 수정 필요
 export const writePost = async (req, res, next) => {
-  const { authorId, title, content, meetingTime, maxCapacity, tags, openChatUrl, isFulled } = req.body;
+  const authorId = req.user.id;
+  const { title, content, meetingTime, maxCapacity, tags, openChatUrl, isFulled } = req.body;
   try {
     const sql_post = `
     INSERT INTO posts (author_id, title, content, meeting_time, max_capacity, open_chat_url, status, is_fulled)
@@ -154,24 +146,34 @@ export const writePost = async (req, res, next) => {
 
 
 // 모집 게시글 삭제
-// TODO: 인증토큰 확인 후 authorID가 posts 테이블에 들어가는 기능 구현
 export const deletePost = async (req, res, next) => {
   const id = Number(req.params.id);
+  const userId = req.user.id;
+
   try {
+    const [rows] = await pool.execute('SELECT author_id FROM posts WHERE id = ?', [id]);
+
+    // 예외 처리: 존재하지 않는 게시글일 경우
+    if (rows.length === 0) {
+      return next(new HttpError(404, "존재하지 않거나 삭제된 게시글입니다.", "POST_NOT_FOUND"));
+    }
+
     const sql = `
     DELETE FROM posts WHERE id = ?
     `;
 
-    // 인증토큰 구현 완료 시 작업할 예정
-    // req.status(403)
+    // 삭제 불가: 게시글 작성자가 아닌 경우
+    if (rows[0].author_id !== userId)
+      return next(new HttpError(403, "게시글 작성자만 삭제할 수 있습니다.", "FORBIDDEN_USER"));
 
     await pool.execute(sql, [id]);
 
     res.status(200).json({
       "success": true,
-      "message": "게시물이 정상적으로 삭제되었습니다. ",
+      "message": "게시물이 정상적으로 삭제되었습니다.",
       "data": {}
     });
+
   } catch (err) {
     next(err);
   }
@@ -187,9 +189,9 @@ export const deletePost = async (req, res, next) => {
 // =================================================================
 
 // 매칭 신청
-// TODO: 유저 id 있어야 함, 인증토큰 확인 절차 구현 필요
 export const applyMatch = async (req, res, next) => {
   const id = Number(req.params.id);
+  const applicantId = req.user.id;
 
   // 트랜잭션 전용 커넥션 생성
   const conn = await pool.getConnection();
@@ -202,29 +204,29 @@ export const applyMatch = async (req, res, next) => {
     SELECT current_capacity, max_capacity
     FROM posts WHERE id = ? FOR UPDATE
     `;
+
     const [rows] = await conn.execute(check_sql, [id]);
     const post = rows[0];
 
+    // 예외 처리: 존재하지 않는 게시글일 경우
+    if (!post) {
+      await conn.rollback();
+      return next(new HttpError(404, "존재하지 않거나 삭제된 게시글입니다.", "POST_NOT_FOUND"));
+    }
 
+    
     // 신청 불가: 정원이 다 찼을 경우
     if (post.current_capacity >= post.max_capacity) {
       await conn.rollback(); // 중간에 나갈 때 롤백
-      return res.status(409).json({
-        "success": false,
-        "message": "이미 정원이 마감된 모임입니다.",
-        "data": {
-          "errorCode": "CAPACITY_FULL"
-        }
-      });
+      return next(new HttpError(409, "이미 정원이 마감된 모임입니다.", "CAPACITY_FULL"));
     }
-    
 
     const apply_sql = `
       INSERT INTO applications (post_id, applicant_id)
       VALUES (?, ?)
       `;
 
-    await conn.execute(apply_sql, [id, 2]); // mockup data: applicant_id = 2
+    await conn.execute(apply_sql, [id, applicantId]);
 
     // 게시글 신청 인원 수 변경
     const post_update_sql = `
@@ -260,9 +262,9 @@ export const applyMatch = async (req, res, next) => {
 
 
 // 매칭 신청 취소(참여자용)
-// TODO: 유저 id 있어야 함, 인증토큰 확인 절차 구현 필요, 방장은 취소 못하게 해야함
 export const cancelApply = async (req, res, next) => {
   const id = Number(req.params.id);
+  const applicantId = req.user.id;
 
   // 트랜잭션 전용 커넥션 생성
   const conn = await pool.getConnection();
@@ -272,25 +274,29 @@ export const cancelApply = async (req, res, next) => {
     await conn.beginTransaction();
 
     const check_sql = `
-    SELECT current_capacity, status
+    SELECT current_capacity, status, author_id
     FROM posts WHERE id = ? FOR UPDATE
     `;
 
     const [rows] = await conn.execute(check_sql, [id]);
     const post = rows[0];
 
+    // 예외 처리: 존재하지 않는 게시글일 경우
+    if (!post) {
+      await conn.rollback();
+      return next(new HttpError(404, "존재하지 않거나 삭제된 게시글입니다.", "POST_NOT_FOUND"));
+    }
 
     // 취소 불가: 매칭이 완료된 모임의 경우
     if (post.status == 'COMPLETED') {
       await conn.rollback();
+      return next(new HttpError(400, "이미 매칭이 완료된 모임은 취소할 수 없습니다.", "ALREADY_COMPLETED"));
+    }
 
-      return res.status(400).json({
-        "success": false,
-        "message": "이미 매칭이 완료된 모임은 취소할 수 없습니다.",
-        "data": {
-          "errorCode": "ALREADY_COMPLETED"
-        }
-      });
+    // 취소 불가: 방장의 경우
+    if(applicantId === post.author_id) {
+      await conn.rollback();
+      return next(new HttpError(400, "방장은 매칭을 취소할 수 없습니다.", "LEADER_CANNOT_CANCEL_MATCH"));
     }
     
     const apply_sql = `
@@ -299,7 +305,7 @@ export const cancelApply = async (req, res, next) => {
       WHERE post_id = ? AND applicant_id = ?
       `;
 
-    await conn.execute(apply_sql, [id, 2]); // mockup data: applicant_id = 2
+    await conn.execute(apply_sql, [id, applicantId]);
 
     // 게시글 신청 인원 수 변경
     const post_update_sql = `

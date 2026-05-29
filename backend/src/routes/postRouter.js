@@ -1,4 +1,6 @@
 import express from 'express';
+import { authenticateToken } from '../middlewares/authMiddleware.js';
+
 import {
   getAllPosts,
   getPostById,
@@ -9,6 +11,8 @@ import {
 } from '../controllers/postController.js';
 
 const router = express.Router();
+
+router.use(authenticateToken);
 
 // 취미 매칭 게시글 CRUD
 router.get('/',      getAllPosts);          // GET    /posts
