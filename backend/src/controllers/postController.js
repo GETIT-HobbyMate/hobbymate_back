@@ -18,8 +18,8 @@ export const getAllPosts = async (req, res, next) => {
            p.meeting_time AS meetingTime,
            p.is_fulled AS isFulled,
            GROUP_CONCAT(t.tag_name) AS tags
-    FROM posts p
-    LEFT JOIN post_tags t ON p.id = t.post_id
+    FROM Posts p
+    LEFT JOIN Post_Tags t ON p.id = t.post_id
     GROUP BY p.id
     `;
     const [rows] = await pool.query(sql);
@@ -63,8 +63,8 @@ export const getPostById = async (req, res, next) => {
            p.meeting_time AS meetingTime,
            p.is_fulled AS isFulled,
            GROUP_CONCAT(t.tag_name) AS tags
-    FROM posts p
-    LEFT JOIN post_tags t ON p.id = t.post_id
+    FROM Posts p
+    LEFT JOIN Post_Tags t ON p.id = t.post_id
     WHERE p.id = ?
     GROUP BY p.id
     `;
@@ -110,7 +110,7 @@ export const writePost = async (req, res, next) => {
   const { title, content, meetingTime, maxCapacity, tags, openChatUrl, isFulled } = req.body;
   try {
     const sql_post = `
-    INSERT INTO posts (author_id, title, content, meeting_time, max_capacity, open_chat_url, status, is_fulled)
+    INSERT INTO Posts (author_id, title, content, meeting_time, max_capacity, open_chat_url, status, is_fulled)
     VALUES (?, ?, ?, ?, ?, ?, 'RECRUITING', ?)
     `;
 
@@ -123,7 +123,7 @@ export const writePost = async (req, res, next) => {
 
     if (tags && tags.length > 0) {
       const sql_tags = `
-      INSERT INTO post_tags (post_id, tag_name)
+      INSERT INTO Post_Tags (post_id, tag_name)
       VALUES (?, ?)
       `;
 
@@ -151,7 +151,7 @@ export const deletePost = async (req, res, next) => {
   const userId = req.user.id;
 
   try {
-    const [rows] = await pool.execute('SELECT author_id FROM posts WHERE id = ?', [id]);
+    const [rows] = await pool.execute('SELECT author_id FROM Posts WHERE id = ?', [id]);
 
     // 예외 처리: 존재하지 않는 게시글일 경우
     if (rows.length === 0) {
@@ -159,7 +159,7 @@ export const deletePost = async (req, res, next) => {
     }
 
     const sql = `
-    DELETE FROM posts WHERE id = ?
+    DELETE FROM Posts WHERE id = ?
     `;
 
     // 삭제 불가: 게시글 작성자가 아닌 경우
@@ -198,9 +198,9 @@ export const searchPostsByTag = async (req, res, next) => {
            p.meeting_time AS meetingTime,
            p.is_fulled AS isFulled,
            GROUP_CONCAT(t.tag_name) AS tags
-    FROM posts p
-    LEFT JOIN post_tags t ON p.id = t.post_id
-    WHERE p.id IN (SELECT post_id FROM post_tags WHERE tag_name = ?)
+    FROM Posts p
+    LEFT JOIN Post_Tags t ON p.id = t.post_id
+    WHERE p.id IN (SELECT post_id FROM Post_Tags WHERE tag_name = ?)
     GROUP BY p.id
     `;
     const [rows] = await pool.query(sql, [tag]);
@@ -246,7 +246,7 @@ export const applyMatch = async (req, res, next) => {
   
     const check_sql = `
     SELECT current_capacity, max_capacity
-    FROM posts WHERE id = ? FOR UPDATE
+    FROM Posts WHERE id = ? FOR UPDATE
     `;
 
     const [rows] = await conn.execute(check_sql, [id]);
@@ -266,7 +266,7 @@ export const applyMatch = async (req, res, next) => {
     }
 
     const apply_sql = `
-      INSERT INTO applications (post_id, applicant_id)
+      INSERT INTO Applications (post_id, applicant_id)
       VALUES (?, ?)
       `;
 
@@ -274,7 +274,7 @@ export const applyMatch = async (req, res, next) => {
 
     // 게시글 신청 인원 수 변경
     const post_update_sql = `
-      UPDATE posts
+      UPDATE Posts
       SET current_capacity = current_capacity + 1, status = ?
       WHERE id = ?
       `;
@@ -319,7 +319,7 @@ export const cancelApply = async (req, res, next) => {
 
     const check_sql = `
     SELECT current_capacity, status, author_id
-    FROM posts WHERE id = ? FOR UPDATE
+    FROM Posts WHERE id = ? FOR UPDATE
     `;
 
     const [rows] = await conn.execute(check_sql, [id]);
@@ -344,7 +344,7 @@ export const cancelApply = async (req, res, next) => {
     }
     
     const apply_sql = `
-      UPDATE applications
+      UPDATE Applications
       SET status = 'CANCELED'
       WHERE post_id = ? AND applicant_id = ?
       `;
@@ -353,7 +353,7 @@ export const cancelApply = async (req, res, next) => {
 
     // 게시글 신청 인원 수 변경
     const post_update_sql = `
-      UPDATE posts
+      UPDATE Posts
       SET current_capacity = current_capacity - 1
       WHERE id = ?
       `;    
