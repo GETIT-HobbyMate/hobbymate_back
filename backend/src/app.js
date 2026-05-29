@@ -1,31 +1,29 @@
+import router from './routes/index.js';
+import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
-import router from './routes/index.js'; // 👈 통합 라우터가 잘 import 되었는지 확인!
+
+import { loggingMiddleware } from './middlewares/loggingMiddleware.js';
+import { errorHandler } from './middlewares/errorHandler.js';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors()); 
-app.use(express.json()); 
+// 미들웨어 세팅
+app.use(cors());
+app.use(express.json());
+app.use(loggingMiddleware); // 가장 위에 등록해야 모든 요청을 빠짐없이 기록함
+app.use('/api', router); // /api/* 로 시작하는 요청은 통합 라우터가 처리
 
-// ==========================================
-// ⭐ [가장 중요] 이 코드가 누락되었거나 오타가 있으면 404가 뜹니다!
-// ==========================================
-app.use('/api', router); 
-
-// 테스트용 메인 주소
+// 테스트용 기본 라우트
 app.get('/', (req, res) => {
   res.send('HobbyMate Backend Server is running!');
 });
 
-// 글로벌 에러 핸들러
-app.use((err, req, res, next) => {
-  console.error("🔥 백엔드 전역 서버 에러 감지:", err);
-  res.status(500).json({ message: "서버 내부 오류가 발생했습니다." });
-});
+// 에러 핸들러: 반드시 모든 라우트 설정 뒤에 위치해야 함
+app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
