@@ -6,7 +6,7 @@ import notificationRouter from './notificationRouter.js';
 
 const router = Router();
 
-router.use('/api/auth', authRouter);
+router.use('/auth', authRouter);
 router.use('/posts', postRouter);
 router.use('/users', userRouter);
 router.use('/notifications', notificationRouter);
