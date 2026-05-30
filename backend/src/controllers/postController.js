@@ -201,7 +201,9 @@ export const searchPostsByTag = async (req, res, next) => {
     FROM Posts p
     LEFT JOIN Post_Tags t ON p.id = t.post_id
     WHERE p.id IN (SELECT post_id FROM Post_Tags WHERE tag_name = ?)
+        AND status = 'RECRUITING'
     GROUP BY p.id
+    ORDER BY created_at
     `;
     const [rows] = await pool.query(sql, [tag]);
 
