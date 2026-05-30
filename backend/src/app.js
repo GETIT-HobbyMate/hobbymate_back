@@ -12,7 +12,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // 미들웨어 세팅
-app.use(cors());
+app.use(cors({
+  origin: FRONTEND_URL, // 프론트엔드 배포 주소 정확히 명시
+  credentials: true,                    // 인증 토큰이나 쿠키 연동을 위해 필수
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
+}));
 app.use(express.json());
 app.use(loggingMiddleware); // 가장 위에 등록해야 모든 요청을 빠짐없이 기록함
 app.use('/api', router); // /api/* 로 시작하는 요청은 통합 라우터가 처리
