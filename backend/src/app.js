@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 3000;
 
 // 미들웨어 세팅
 app.use(cors({
-  origin: FRONTEND_URL, // 프론트엔드 배포 주소 정확히 명시
+  origin: process.env.FRONTEND_URL,
   credentials: true,                    // 인증 토큰이나 쿠키 연동을 위해 필수
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
 }));
