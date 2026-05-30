@@ -1,5 +1,6 @@
 import pool from '../db.js'
 import { HttpError } from '../errors/httpError.js';
+import { sendMatchCompleteNotification } from './notificationController.js';
 
 // =================================================================
 // RECRUITMENT POSTS CRUD & SEARCH (모집 게시글 관리 및 검색)
@@ -108,13 +109,19 @@ export const getPostById = async (req, res, next) => {
 export const writePost = async (req, res, next) => {
   const authorId = req.user.id;
   const { title, content, meetingTime, maxCapacity, tags, openChatUrl, isFulled } = req.body;
+  
+  // 트랜잭션 전용 커넥션 생성 (태그 실패 시 게시글도 롤백되도록 트랜잭션 추가)
+  const conn = await pool.getConnection();
   try {
+    // 트랜잭션 시작
+    await conn.beginTransaction();
+
     const sql_post = `
     INSERT INTO Posts (author_id, title, content, meeting_time, max_capacity, open_chat_url, status, is_fulled)
     VALUES (?, ?, ?, ?, ?, ?, 'RECRUITING', ?)
     `;
 
-    const [post_result] = await pool.execute(sql_post,
+    const [post_result] = await conn.execute(sql_post,
       [authorId, title, content, meetingTime, maxCapacity, openChatUrl, isFulled]
     );
 
@@ -128,19 +135,32 @@ export const writePost = async (req, res, next) => {
       `;
 
       for (const tag of tags) {
-        await pool.execute(sql_tags, [postId, tag]);
+        await conn.execute(sql_tags, [postId, tag]);
       }
+    }
+
+    // 모든 쿼리가 성공하면 최종 DB 반영
+    await conn.commit();
+
+    // 예외 처리: 만약 방장이 최대 모집 인원을 1명으로 설정했다면 개설과 동시에 자동 마감 처리 및 알림 발송
+    if (Number(maxCapacity) === 1) {
+      await sendMatchCompleteNotification(postId);
     }
 
     res.status(201).json({
       "success": true,
-      "message": "게시물이 등록되었습니다. ",
+      "message": "게시물 등록되었습니다. ",
       "data": {
         "postId": postId
       }
     });
   } catch (err) {
+    // 실패 시 롤백
+    await conn.rollback();
     next(err);
+  } finally {
+    // 커넥션 반환
+    conn.release();
   }
 };
 
@@ -246,8 +266,9 @@ export const applyMatch = async (req, res, next) => {
     // 트랜잭션 시작 알림
     await conn.beginTransaction();
   
+    // 예외 처리: 방장 셀프 신청 제한을 식별하기 위해 author_id 컬럼 추가 조회
     const check_sql = `
-    SELECT current_capacity, max_capacity
+    SELECT current_capacity, max_capacity, author_id
     FROM Posts WHERE id = ? FOR UPDATE
     `;
 
@@ -260,7 +281,22 @@ export const applyMatch = async (req, res, next) => {
       return next(new HttpError(404, "존재하지 않거나 삭제된 게시글입니다.", "POST_NOT_FOUND"));
     }
 
-    
+    // 예외 처리: 방장 본인이 자신의 모임에 신청하려 할 때 차단
+    if (post.author_id === applicantId) {
+      await conn.rollback();
+      return next(new HttpError(400, "방장은 본인의 모임에 신청할 수 없습니다.", "LEADER_CANNOT_APPLY"));
+    }
+
+    // 예외 처리: 이미 신청 상태('APPLIED')인 유저가 또 중복 신청하는 것 방지
+    const [existingApp] = await conn.execute(
+      `SELECT id FROM Applications WHERE post_id = ? AND applicant_id = ? AND status = 'APPLIED'`,
+      [id, applicantId]
+    );
+    if (existingApp.length > 0) {
+      await conn.rollback();
+      return next(new HttpError(409, "이미 신청을 완료한 모임입니다.", "ALREADY_APPLIED"));
+    }
+
     // 신청 불가: 정원이 다 찼을 경우
     if (post.current_capacity >= post.max_capacity) {
       await conn.rollback(); // 중간에 나갈 때 롤백
@@ -274,22 +310,22 @@ export const applyMatch = async (req, res, next) => {
 
     await conn.execute(apply_sql, [id, applicantId]);
 
-    // 게시글 신청 인원 수 변경
+    // 게시글 신청 인원 수 변경 (마감 상태값 변경 책임은 알림 발송 함수에 넘기므로 인원수만 증가시킵니다)
     const post_update_sql = `
       UPDATE Posts
-      SET current_capacity = current_capacity + 1, status = ?
+      SET current_capacity = current_capacity + 1
       WHERE id = ?
       `;
 
-    // 신청가능 정원 한 명 남았을 경우
-    const status = (post.max_capacity - post.current_capacity === 1) ? 'COMPLETED' : 'RECRUITING';
-
-    
-    await conn.execute(post_update_sql, [status, id]);
+    await conn.execute(post_update_sql, [id]);
 
     // 모든 쿼리가 에러 없이 성공했다면 최종적으로 DB에 반영
     await conn.commit();
 
+    // 모든 DB 반영(커밋) 직후, 이번 신청으로 인해 인원이 가득 찼다면 매칭 완료 알림 발송 및 게시글 마감 로직 실행
+    if (post.current_capacity + 1 === post.max_capacity) {
+      await sendMatchCompleteNotification(id);
+    }
 
     res.status(200).json({
       "success": true,
@@ -305,6 +341,7 @@ export const applyMatch = async (req, res, next) => {
     conn.release();
   }
 };
+
 
 
 // 매칭 신청 취소(참여자용)
@@ -345,13 +382,20 @@ export const cancelApply = async (req, res, next) => {
       return next(new HttpError(400, "방장은 매칭을 취소할 수 없습니다.", "LEADER_CANNOT_CANCEL_MATCH"));
     }
     
+    // 예외 처리: 현재 참여 신청('APPLIED') 중인 대상에 대해서만 취소를 적용할 수 있도록 조건 추가
     const apply_sql = `
       UPDATE Applications
       SET status = 'CANCELED'
-      WHERE post_id = ? AND applicant_id = ?
+      WHERE post_id = ? AND applicant_id = ? AND status = 'APPLIED'
       `;
 
-    await conn.execute(apply_sql, [id, applicantId]);
+    const [applyResult] = await conn.execute(apply_sql, [id, applicantId]);
+
+    // 예외 처리: 실제로 영향 받은 행(affectedRows)이 0개라면 허위 요청이거나 이미 취소된 것이므로 인원 차감을 방지합니다
+    if (applyResult.affectedRows === 0) {
+      await conn.rollback();
+      return next(new HttpError(400, "취소할 수 있는 신청 내역이 존재하지 않습니다.", "APPLICATION_NOT_FOUND"));
+    }
 
     // 게시글 신청 인원 수 변경
     const post_update_sql = `
