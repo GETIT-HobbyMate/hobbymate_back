@@ -6,6 +6,7 @@ import {
   getPostById,
   writePost,
   deletePost,
+  searchPostsByTag,
   applyMatch,
   cancelApply
 } from '../controllers/postController.js';
@@ -16,6 +17,7 @@ router.use(authenticateToken);
 
 // 취미 매칭 게시글 CRUD
 router.get('/',      getAllPosts);          // GET    /posts
+router.get('/search', searchPostsByTag);
 router.get('/:id',   getPostById);          // GET    /posts/:id
 router.post('/',     writePost);            // POST   /posts
 router.delete('/:id', deletePost);          // DELETE /posts/:id
